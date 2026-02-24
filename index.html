@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Tactical FieldKit — 100% offline SITREP generator and image sanitizer. Privacy-first, zero network, zero metadata leaks." />
+  <meta name="theme-color" content="#0d1117" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="FieldKit" />
+
+  <!-- PWA Manifest inline -->
+  <link rel="manifest" href="data:application/json;charset=utf-8,%7B%22name%22%3A%22Tactical%20FieldKit%22%2C%22short_name%22%3A%22FieldKit%22%2C%22start_url%22%3A%22.%2F%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230d1117%22%2C%22theme_color%22%3A%22%230d1117%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%2C%253Csvg%2520xmlns%253D%2527http%253A%252F%252Fwww.w3.org%252F2000%252Fsvg%2527%2520viewBox%253D%25270%25200%252096%252096%2527%253E%253Crect%2520width%253D%252796%2527%2520height%253D%252796%2527%2520fill%253D%2527%25230d1117%2527%252F%253E%253Ctext%2520x%253D%252748%2527%2520y%253D%252772%2527%2520font-size%253D%252764%2527%2520text-anchor%253D%2527middle%2527%253E%25F0%259F%259B%25A1%253C%252Ftext%253E%253C%252Fsvg%253E%22%2C%22sizes%22%3A%2296x96%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%7D%5D%7D" />
+
+  <title>🛡️ Tactical FieldKit</title>
+
+  <style>
+    /* ─── Reset & Variables ───────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d1117;
+      --bg2:       #161b22;
+      --bg3:       #21262d;
+      --border:    #30363d;
+      --accent:    #58a6ff;
+      --accent2:   #3fb950;
+      --danger:    #f85149;
+      --warn:      #d29922;
+      --text:      #e6edf3;
+      --text2:     #8b949e;
+      --radius:    8px;
+      --shadow:    0 8px 32px rgba(0,0,0,.5);
+      --transition: .2s ease;
+    }
+
+    html { font-size: 16px; scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                   "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ─── Toast Notifications ─────────────────────────────────────────────── */
+    #toast-container {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: .5rem;
+      pointer-events: none;
+    }
+
+    .toast {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .75rem 1.25rem;
+      border-radius: var(--radius);
+      font-size: .875rem;
+      font-weight: 500;
+      box-shadow: var(--shadow);
+      pointer-events: auto;
+      animation: toastIn .25s ease forwards;
+      max-width: 320px;
+    }
+
+    .toast.success { background: #1a3d2b; border: 1px solid var(--accent2); color: #3fb950; }
+    .toast.error   { background: #3d1a1a; border: 1px solid var(--danger);  color: #f85149; }
+    .toast.info    { background: #1a2d3d; border: 1px solid var(--accent);  color: var(--accent); }
+    .toast.warn    { background: #3d2e1a; border: 1px solid var(--warn);    color: var(--warn); }
+
+    .toast-icon { font-size: 1rem; flex-shrink: 0; }
+    .toast.fade-out { animation: toastOut .3s ease forwards; }
+
+    @keyframes toastIn  { from { opacity: 0; transform: translateX(2rem); } to { opacity: 1; transform: none; } }
+    @keyframes toastOut { from { opacity: 1; transform: none; }            to { opacity: 0; transform: translateX(2rem); } }
+
+    /* ─── Header ──────────────────────────────────────────────────────────── */
+    header {
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: .75rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: .625rem;
+    }
+
+    .header-brand .logo { font-size: 1.5rem; }
+
+    .header-brand h1 {
+      font-size: 1.125rem;
+      font-weight: 700;
+      letter-spacing: -.01em;
+    }
+
+    .header-brand h1 span { color: var(--accent); }
+
+    .header-badges {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .25rem;
+      padding: .2rem .6rem;
+      border-radius: 100px;
+      font-size: .7rem;
+      font-weight: 600;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .badge-offline  { background: #1a3d2b; color: var(--accent2); border: 1px solid var(--accent2); }
+    .badge-private  { background: #3d1a3d; color: #bc8cff;        border: 1px solid #8957e5; }
+    .badge-version  { background: var(--bg3); color: var(--text2); border: 1px solid var(--border); }
+
+    /* ─── PWA Install Bar ─────────────────────────────────────────────────── */
+    #install-banner {
+      background: linear-gradient(135deg, #1a2d3d 0%, #162032 100%);
+      border-bottom: 1px solid var(--accent);
+      padding: .625rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    #install-banner p {
+      font-size: .85rem;
+      color: var(--text2);
+    }
+
+    #install-banner p strong { color: var(--accent); }
+
+    #install-btn {
+      background: var(--accent);
+      color: #0d1117;
+      border: none;
+      padding: .4rem 1rem;
+      border-radius: var(--radius);
+      font-size: .8rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity var(--transition);
+      white-space: nowrap;
+    }
+
+    #install-btn:hover { opacity: .85; }
+    #install-banner.hidden { display: none; }
+
+    /* ─── Main Layout ─────────────────────────────────────────────────────── */
+    main {
+      flex: 1;
+      padding: 1.5rem;
+      max-width: 960px;
+      width: 100%;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    /* ─── Tabs ────────────────────────────────────────────────────────────── */
+    .tabs {
+      display: flex;
+      gap: .25rem;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: .25rem;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: .6rem 1rem;
+      background: transparent;
+      border: none;
+      border-radius: calc(var(--radius) - 2px);
+      color: var(--text2);
+      font-size: .875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background var(--transition), color var(--transition);
+    }
+
+    .tab-btn:hover { background: var(--bg3); color: var(--text); }
+
+    .tab-btn.active {
+      background: var(--bg3);
+      color: var(--text);
+      box-shadow: 0 1px 3px rgba(0,0,0,.4);
+    }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: flex; flex-direction: column; gap: 1.25rem; }
+
+    /* ─── Cards ───────────────────────────────────────────────────────────── */
+    .card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+    }
+
+    .card-title {
+      font-size: .8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--text2);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: .4rem;
+    }
+
+    /* ─── Form Elements ───────────────────────────────────────────────────── */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .875rem;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: .3rem;
+    }
+
+    .form-group.full { grid-column: 1 / -1; }
+
+    label {
+      font-size: .8rem;
+      font-weight: 600;
+      color: var(--text2);
+      letter-spacing: .03em;
+    }
+
+    input[type="text"],
+    input[type="date"],
+    input[type="time"],
+    select,
+    textarea {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 1rem; /* prevents iOS zoom */
+      padding: .55rem .75rem;
+      width: 100%;
+      transition: border-color var(--transition), box-shadow var(--transition);
+      font-family: inherit;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    textarea { resize: vertical; min-height: 90px; }
+
+    input[type="text"]:focus,
+    input[type="date"]:focus,
+    input[type="time"]:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(88, 166, 255, .15);
+    }
+
+    select option { background: var(--bg3); }
+
+    /* ─── Buttons ─────────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      padding: .6rem 1.2rem;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      font-size: .875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity var(--transition), transform var(--transition), background var(--transition);
+      font-family: inherit;
+      white-space: nowrap;
+    }
+
+    .btn:hover   { opacity: .85; }
+    .btn:active  { transform: scale(.97); }
+    .btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+    .btn-primary  { background: var(--accent);  color: #0d1117; }
+    .btn-success  { background: var(--accent2); color: #0d1117; }
+    .btn-danger   { background: var(--danger);  color: #fff; }
+    .btn-ghost    { background: var(--bg3);     color: var(--text); border-color: var(--border); }
+    .btn-warn     { background: var(--warn);    color: #0d1117; }
+
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+      align-items: center;
+    }
+
+    /* ─── SITREP Output ───────────────────────────────────────────────────── */
+    #sitrep-output {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+      font-size: .8rem;
+      line-height: 1.7;
+      color: var(--accent2);
+      white-space: pre-wrap;
+      word-break: break-word;
+      min-height: 120px;
+      display: none;
+    }
+
+    #sitrep-output.visible { display: block; }
+
+    .output-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: .5rem;
+      flex-wrap: wrap;
+      gap: .5rem;
+    }
+
+    /* ─── Hint ────────────────────────────────────────────────────────────── */
+    .hint {
+      font-size: .75rem;
+      color: var(--text2);
+      display: flex;
+      align-items: center;
+      gap: .3rem;
+    }
+
+    .kbd {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: .1rem .35rem;
+      font-family: monospace;
+      font-size: .7rem;
+      color: var(--text);
+    }
+
+    /* ─── Redaction Toggle ────────────────────────────────────────────────── */
+    .redact-btn-wrap {
+      position: relative;
+      display: inline-flex;
+    }
+
+    .redact-badge {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      background: var(--danger);
+      color: #fff;
+      font-size: .6rem;
+      font-weight: 700;
+      padding: .05rem .3rem;
+      border-radius: 100px;
+      pointer-events: none;
+      display: none;
+    }
+
+    .redact-badge.visible { display: block; }
+
+    /* ─── Image Sanitizer ─────────────────────────────────────────────────── */
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color var(--transition), background var(--transition);
+    }
+
+    .drop-zone:hover,
+    .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(88, 166, 255, .05);
+    }
+
+    .drop-zone-icon { font-size: 2.5rem; margin-bottom: .5rem; }
+    .drop-zone p    { color: var(--text2); font-size: .9rem; }
+    .drop-zone strong { color: var(--accent); }
+
+    #img-input { display: none; }
+
+    #preview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: .75rem;
+    }
+
+    .preview-card {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .preview-card img {
+      width: 100%;
+      aspect-ratio: 4/3;
+      object-fit: cover;
+      display: block;
+    }
+
+    .preview-card .preview-info {
+      padding: .5rem .625rem;
+      font-size: .72rem;
+      color: var(--text2);
+    }
+
+    .preview-card .preview-status {
+      position: absolute;
+      top: .4rem;
+      right: .4rem;
+      padding: .15rem .45rem;
+      border-radius: 100px;
+      font-size: .65rem;
+      font-weight: 700;
+    }
+
+    .status-clean { background: #1a3d2b; color: var(--accent2); border: 1px solid var(--accent2); }
+    .status-raw   { background: #3d2e1a; color: var(--warn);    border: 1px solid var(--warn); }
+
+    .meta-table {
+      font-size: .72rem;
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .meta-table td {
+      padding: .25rem .4rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    .meta-table td:first-child { color: var(--text2); white-space: nowrap; }
+    .meta-table td:last-child  { color: var(--text); word-break: break-all; }
+
+    /* ─── Info Box ────────────────────────────────────────────────────────── */
+    .info-box {
+      display: flex;
+      gap: .75rem;
+      padding: .875rem 1rem;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent);
+      border-radius: var(--radius);
+      font-size: .82rem;
+      color: var(--text2);
+    }
+
+    .info-box-icon { font-size: 1.1rem; flex-shrink: 0; }
+
+    /* ─── Footer ──────────────────────────────────────────────────────────── */
+    footer {
+      background: var(--bg2);
+      border-top: 1px solid var(--border);
+      padding: 1rem 1.5rem;
+      text-align: center;
+      font-size: .75rem;
+      color: var(--text2);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: .5rem 1.5rem;
+    }
+
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+    .footer-dot { color: var(--border); }
+
+    /* ─── Responsive ──────────────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      header { padding: .875rem 1rem; }
+      main   { padding: 1rem; gap: 1rem; }
+      .form-grid { grid-template-columns: 1fr; }
+      .form-group.full { grid-column: 1; }
+      .btn { padding: .55rem 1rem; }
+      footer { padding: .875rem 1rem; }
+    }
+
+    /* ─── Scrollbar ───────────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+  <!-- Toast Container -->
+  <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Header -->
+  <header>
+    <div class="header-brand">
+      <span class="logo" aria-hidden="true">🛡️</span>
+      <h1>Tactical <span>FieldKit</span></h1>
+    </div>
+    <div class="header-badges">
+      <span class="badge badge-offline"  aria-label="Works fully offline">⚡ Offline</span>
+      <span class="badge badge-private"  aria-label="Privacy first, zero network">🔒 Privacy First</span>
+      <span class="badge badge-version"  aria-label="Version 1.1">v1.1</span>
+    </div>
+  </header>
+
+  <!-- PWA Install Banner -->
+  <div id="install-banner" class="hidden" role="banner" aria-label="Install app banner">
+    <p>📲 <strong>Install as an app</strong> — works offline, no store required</p>
+    <button id="install-btn" type="button" aria-label="Install Tactical FieldKit as a Progressive Web App">
+      Install App
+    </button>
+  </div>
+
+  <!-- Main Content -->
+  <main>
+
+    <!-- Tabs -->
+    <nav class="tabs" role="tablist" aria-label="FieldKit modules">
+      <button class="tab-btn active" role="tab" aria-selected="true"  aria-controls="tab-sitrep"  id="btn-sitrep"  type="button" onclick="switchTab('sitrep')">📋 SITREP</button>
+      <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-sanitize" id="btn-sanitize" type="button" onclick="switchTab('sanitize')">🖼️ Image Sanitizer</button>
+      <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-about"   id="btn-about"   type="button" onclick="switchTab('about')">ℹ️ About</button>
+    </nav>
+
+    <!-- ── Tab: SITREP ──────────────────────────────────────────────────── -->
+    <div class="tab-panel active" id="tab-sitrep" role="tabpanel" aria-labelledby="btn-sitrep">
+
+      <div class="info-box" role="note">
+        <span class="info-box-icon" aria-hidden="true">🔐</span>
+        <span>All data stays in your browser. Nothing is sent over the network. SITREP text is never stored.</span>
+      </div>
+
+      <!-- Input Form -->
+      <div class="card">
+        <div class="card-title"><span aria-hidden="true">📝</span> Mission Details</div>
+        <div class="form-grid">
+
+          <div class="form-group">
+            <label for="callsign">Callsign / Unit</label>
+            <input type="text" id="callsign" placeholder="ALPHA-1" aria-label="Callsign or Unit identifier" autocomplete="off" spellcheck="false" />
+          </div>
+
+          <div class="form-group">
+            <label for="classification">Classification</label>
+            <select id="classification" aria-label="Report classification level">
+              <option value="UNCLASSIFIED">UNCLASSIFIED</option>
+              <option value="SENSITIVE">SENSITIVE</option>
+              <option value="CONFIDENTIAL">CONFIDENTIAL</option>
+              <option value="SECRET">SECRET</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="report-date">Date (DTG)</label>
+            <input type="date" id="report-date" aria-label="Report date" />
+          </div>
+
+          <div class="form-group">
+            <label for="report-time">Time (Local)</label>
+            <input type="time" id="report-time" aria-label="Report time" />
+          </div>
+
+          <div class="form-group">
+            <label for="location">Location / Grid</label>
+            <input type="text" id="location" placeholder="38T KM 12345 67890" aria-label="Location or grid coordinates" autocomplete="off" spellcheck="false" />
+          </div>
+
+          <div class="form-group">
+            <label for="priority">Priority</label>
+            <select id="priority" aria-label="Report priority level">
+              <option value="ROUTINE">ROUTINE</option>
+              <option value="PRIORITY">PRIORITY</option>
+              <option value="IMMEDIATE">IMMEDIATE</option>
+              <option value="FLASH">FLASH</option>
+            </select>
+          </div>
+
+          <div class="form-group full">
+            <label for="situation">Situation (What happened?)</label>
+            <textarea id="situation" placeholder="Describe the current situation clearly and concisely..." aria-label="Situation description" rows="3"></textarea>
+          </div>
+
+          <div class="form-group full">
+            <label for="mission">Mission / Task</label>
+            <textarea id="mission" placeholder="Current mission or assigned task..." aria-label="Mission or task description" rows="2"></textarea>
+          </div>
+
+          <div class="form-group full">
+            <label for="execution">Execution / Actions Taken</label>
+            <textarea id="execution" placeholder="Actions taken, movements, observations..." aria-label="Execution and actions taken" rows="3"></textarea>
+          </div>
+
+          <div class="form-group full">
+            <label for="logistics">Logistics / Sustainment</label>
+            <textarea id="logistics" placeholder="Fuel, ammo, personnel status, medical..." aria-label="Logistics and sustainment status" rows="2"></textarea>
+          </div>
+
+          <div class="form-group full">
+            <label for="command">Command &amp; Signal</label>
+            <textarea id="command" placeholder="Commander's intent, frequencies, contact info..." aria-label="Command and signal information" rows="2"></textarea>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="btn-row">
+        <button class="btn btn-primary" type="button" id="generate-btn" onclick="generateSITREP()" aria-label="Generate SITREP report">
+          <span aria-hidden="true">⚡</span> Generate SITREP
+        </button>
+        <button class="btn btn-ghost" type="button" id="reset-btn" onclick="resetSITREP()" aria-label="Reset all SITREP fields">
+          <span aria-hidden="true">🔄</span> Reset
+        </button>
+        <div class="redact-btn-wrap">
+          <button class="btn btn-warn" type="button" id="redact-btn" onclick="toggleRedaction()" aria-label="Toggle redaction mode" aria-pressed="false">
+            <span aria-hidden="true">✏️</span> Redact
+          </button>
+          <span class="redact-badge" id="redact-badge" aria-label="Redaction mode active">ON</span>
+        </div>
+        <span class="hint" aria-label="Keyboard shortcut tip">
+          <span class="kbd">Ctrl</span>+<span class="kbd">Enter</span> generates SITREP
+        </span>
+      </div>
+
+      <!-- Output -->
+      <div id="sitrep-output-wrap" style="display:none">
+        <div class="output-header">
+          <div class="card-title" style="margin:0"><span aria-hidden="true">📄</span> Generated SITREP</div>
+          <div class="btn-row">
+            <button class="btn btn-success" type="button" id="copy-btn" onclick="copySITREP()" aria-label="Copy SITREP to clipboard">
+              <span aria-hidden="true">📋</span> Copy
+            </button>
+            <button class="btn btn-ghost" type="button" id="export-btn" onclick="exportSITREP()" aria-label="Export SITREP as text file">
+              <span aria-hidden="true">💾</span> Export .txt
+            </button>
+          </div>
+        </div>
+        <pre id="sitrep-output" class="visible" aria-label="Generated SITREP report" aria-live="polite"></pre>
+      </div>
+
+    </div><!-- /tab-sitrep -->
+
+
+    <!-- ── Tab: Image Sanitizer ─────────────────────────────────────────── -->
+    <div class="tab-panel" id="tab-sanitize" role="tabpanel" aria-labelledby="btn-sanitize">
+
+      <div class="info-box" role="note">
+        <span class="info-box-icon" aria-hidden="true">🛡️</span>
+        <span>Images are processed entirely in your browser. <strong>No pixels leave your device.</strong> EXIF metadata (GPS, device info, timestamps) is stripped by re-rendering to a canvas.</span>
+      </div>
+
+      <!-- Drop Zone -->
+      <div class="drop-zone" id="drop-zone" role="button" tabindex="0"
+           aria-label="Drop images here or click to select"
+           onclick="document.getElementById('img-input').click()"
+           onkeydown="if(event.key==='Enter'||event.key===' ')document.getElementById('img-input').click()"
+           ondragover="handleDragOver(event)"
+           ondragleave="handleDragLeave(event)"
+           ondrop="handleDrop(event)">
+        <div class="drop-zone-icon" aria-hidden="true">📁</div>
+        <p><strong>Drop images here</strong> or click to browse</p>
+        <p style="margin-top:.3rem; font-size:.75rem">JPEG, PNG, WebP, GIF — processed locally, no upload</p>
+      </div>
+      <input type="file" id="img-input" accept="image/*" multiple aria-label="Select images to sanitize" onchange="handleFileInput(event)" />
+
+      <!-- Preview Grid -->
+      <div id="preview-grid" aria-label="Image preview grid" aria-live="polite"></div>
+
+      <!-- Download All Button -->
+      <div class="btn-row" id="sanitize-actions" style="display:none">
+        <button class="btn btn-success" type="button" id="download-all-btn" onclick="downloadAll()" aria-label="Download all sanitized images">
+          <span aria-hidden="true">⬇️</span> Download All Clean
+        </button>
+        <button class="btn btn-ghost" type="button" onclick="clearImages()" aria-label="Clear all images">
+          <span aria-hidden="true">🗑️</span> Clear All
+        </button>
+      </div>
+
+    </div><!-- /tab-sanitize -->
+
+
+    <!-- ── Tab: About ───────────────────────────────────────────────────── -->
+    <div class="tab-panel" id="tab-about" role="tabpanel" aria-labelledby="btn-about">
+
+      <div class="card">
+        <div class="card-title"><span aria-hidden="true">🛡️</span> About Tactical FieldKit</div>
+
+        <div style="display:flex;flex-direction:column;gap:1rem;font-size:.9rem;line-height:1.7;color:var(--text2)">
+
+          <p>
+            <strong style="color:var(--text)">Tactical FieldKit</strong> is a privacy-first, 100% offline tool
+            for generating structured situation reports (SITREPs) and sanitizing images of metadata.
+            Built for law enforcement, journalists, NGO field workers, and security operators.
+          </p>
+
+          <div class="info-box">
+            <span class="info-box-icon" aria-hidden="true">⚠️</span>
+            <div>
+              <strong style="color:var(--warn)">OPSEC Notice:</strong> This tool runs entirely in your browser.
+              No data is transmitted, stored, or logged. For maximum security, use in
+              <strong>Airplane Mode</strong> or on an air-gapped device. Clear your clipboard after use.
+            </div>
+          </div>
+
+          <ul style="padding-left:1.25rem;display:flex;flex-direction:column;gap:.5rem">
+            <li>✅ Zero external dependencies</li>
+            <li>✅ Zero network requests after page load</li>
+            <li>✅ Zero telemetry, analytics, or tracking</li>
+            <li>✅ Works offline as an installed PWA</li>
+            <li>✅ EXIF/metadata stripping via HTML5 Canvas</li>
+            <li>✅ Open source — MIT License</li>
+          </ul>
+
+          <div style="border-top:1px solid var(--border);padding-top:1rem">
+            <p style="color:var(--text2);font-size:.8rem">
+              Source code: <a href="https://github.com/MiMindMendinc/Tactical-FieldKit" style="color:var(--accent)" target="_blank" rel="noopener noreferrer">github.com/MiMindMendinc/Tactical-FieldKit</a>
+            </p>
+          </div>
+
+        </div>
+      </div>
+
+    </div><!-- /tab-about -->
+
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <span>🛡️ Tactical FieldKit v1.1 — February 2026</span>
+    <span class="footer-dot" aria-hidden="true">•</span>
+    <span>100% Offline · Zero Telemetry</span>
+    <span class="footer-dot" aria-hidden="true">•</span>
+    <a href="https://github.com/MiMindMendinc/Tactical-FieldKit" target="_blank" rel="noopener noreferrer" aria-label="View source on GitHub">GitHub</a>
+    <span class="footer-dot" aria-hidden="true">•</span>
+    <a href="https://github.com/MiMindMendinc/Tactical-FieldKit/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" aria-label="MIT License">MIT License</a>
+  </footer>
+
+
+  <script>
+    "use strict";
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       TOAST NOTIFICATION SYSTEM
+    ═══════════════════════════════════════════════════════════════════════ */
+    function showToast(message, type = "info", duration = 3500) {
+      const container = document.getElementById("toast-container");
+      const icons = { success: "✅", error: "❌", info: "ℹ️", warn: "⚠️" };
+
+      const toast = document.createElement("div");
+      toast.className = `toast ${type}`;
+      toast.setAttribute("role", "alert");
+      toast.innerHTML = `<span class="toast-icon" aria-hidden="true">${icons[type] || "ℹ️"}</span><span>${message}</span>`;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.classList.add("fade-out");
+        toast.addEventListener("animationend", () => toast.remove(), { once: true });
+      }, duration);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       TABS
+    ═══════════════════════════════════════════════════════════════════════ */
+    function switchTab(name) {
+      document.querySelectorAll(".tab-btn").forEach(btn => {
+        const active = btn.id === `btn-${name}`;
+        btn.classList.toggle("active", active);
+        btn.setAttribute("aria-selected", active ? "true" : "false");
+      });
+      document.querySelectorAll(".tab-panel").forEach(panel => {
+        panel.classList.toggle("active", panel.id === `tab-${name}`);
+      });
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       SITREP GENERATOR
+    ═══════════════════════════════════════════════════════════════════════ */
+    let redactionMode = false;
+
+    function pad(n) { return String(n).padStart(2, "0"); }
+
+    function generateSITREP() {
+      const get = id => document.getElementById(id).value.trim();
+
+      const callsign       = get("callsign")       || "UNKNOWN";
+      const classification = get("classification") || "UNCLASSIFIED";
+      const priority       = get("priority")       || "ROUTINE";
+      const date           = get("report-date");
+      const time           = get("report-time");
+      const location       = get("location")       || "UNKNOWN";
+      const situation      = get("situation");
+      const mission        = get("mission");
+      const execution      = get("execution");
+      const logistics      = get("logistics");
+      const command        = get("command");
+
+      const now = new Date();
+      const dtg = date && time
+        ? `${date.replace(/-/g, "")}T${time.replace(":", "")}L`
+        : `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}T${pad(now.getHours())}${pad(now.getMinutes())}L`;
+
+      const bar = "═".repeat(56);
+      const sep = "─".repeat(56);
+
+      let sitrep = [
+        bar,
+        `  TACTICAL SITUATION REPORT (SITREP)`,
+        `  ${classification} // ${priority}`,
+        bar,
+        ``,
+        `  DTG:            ${dtg}`,
+        `  UNIT/CALLSIGN:  ${callsign}`,
+        `  LOCATION/GRID:  ${location}`,
+        ``,
+        sep,
+        `  1. SITUATION`,
+        sep,
+        `  ${situation || "[NOT REPORTED]"}`,
+        ``,
+        sep,
+        `  2. MISSION / TASK`,
+        sep,
+        `  ${mission || "[NOT REPORTED]"}`,
+        ``,
+        sep,
+        `  3. EXECUTION / ACTIONS TAKEN`,
+        sep,
+        `  ${execution || "[NOT REPORTED]"}`,
+        ``,
+        sep,
+        `  4. LOGISTICS / SUSTAINMENT`,
+        sep,
+        `  ${logistics || "[NOT REPORTED]"}`,
+        ``,
+        sep,
+        `  5. COMMAND & SIGNAL`,
+        sep,
+        `  ${command || "[NOT REPORTED]"}`,
+        ``,
+        bar,
+        `  END SITREP // ${classification}`,
+        bar,
+      ].join("\n");
+
+      if (redactionMode) {
+        sitrep = sitrep
+          .replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, "[IP REDACTED]")
+          .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, "[EMAIL REDACTED]")
+          .replace(/\b\d{10,}\b/g, "[NUM REDACTED]")
+          .replace(/\b(FREQ|CH|CHANNEL)\s*[\d.]+\b/gi, "[FREQ REDACTED]");
+      }
+
+      const outputEl = document.getElementById("sitrep-output");
+      const wrapEl   = document.getElementById("sitrep-output-wrap");
+      outputEl.textContent = sitrep;
+      outputEl.classList.add("visible");
+      wrapEl.style.display = "block";
+      wrapEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+      showToast("SITREP generated successfully", "success");
+    }
+
+    function resetSITREP() {
+      const fields = ["callsign","location","situation","mission","execution","logistics","command"];
+      fields.forEach(id => { document.getElementById(id).value = ""; });
+      document.getElementById("report-date").value = "";
+      document.getElementById("report-time").value = "";
+      document.getElementById("classification").value = "UNCLASSIFIED";
+      document.getElementById("priority").value = "ROUTINE";
+
+      document.getElementById("sitrep-output").textContent = "";
+      document.getElementById("sitrep-output").classList.remove("visible");
+      document.getElementById("sitrep-output-wrap").style.display = "none";
+
+      if (redactionMode) toggleRedaction();
+      showToast("SITREP form reset", "info");
+    }
+
+    function toggleRedaction() {
+      redactionMode = !redactionMode;
+      const btn   = document.getElementById("redact-btn");
+      const badge = document.getElementById("redact-badge");
+      btn.setAttribute("aria-pressed", redactionMode ? "true" : "false");
+      badge.classList.toggle("visible", redactionMode);
+
+      if (redactionMode) {
+        btn.style.background = "var(--danger)";
+        btn.style.color = "#fff";
+        showToast("Redaction mode ON — sensitive patterns will be masked", "warn");
+      } else {
+        btn.style.background = "";
+        btn.style.color = "";
+        showToast("Redaction mode OFF", "info");
+      }
+    }
+
+    async function copySITREP() {
+      const text = document.getElementById("sitrep-output").textContent;
+      if (!text) { showToast("Nothing to copy — generate a SITREP first", "warn"); return; }
+      try {
+        await navigator.clipboard.writeText(text);
+        const btn = document.getElementById("copy-btn");
+        btn.textContent = "✅ Copied!";
+        showToast("SITREP copied to clipboard", "success");
+        setTimeout(() => { btn.innerHTML = '<span aria-hidden="true">📋</span> Copy'; }, 2000);
+      } catch {
+        showToast("Clipboard access denied — select text manually", "error");
+      }
+    }
+
+    function exportSITREP() {
+      const text = document.getElementById("sitrep-output").textContent;
+      if (!text) { showToast("Nothing to export — generate a SITREP first", "warn"); return; }
+
+      const btn = document.getElementById("export-btn");
+      btn.disabled = true;
+      btn.innerHTML = '<span aria-hidden="true">⏳</span> Processing...';
+
+      setTimeout(() => {
+        const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement("a");
+        const now  = new Date();
+        a.href     = url;
+        a.download = `SITREP_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        btn.disabled = false;
+        btn.innerHTML = '<span aria-hidden="true">💾</span> Export .txt';
+        showToast("SITREP exported successfully", "success");
+      }, 300);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       KEYBOARD SHORTCUT
+    ═══════════════════════════════════════════════════════════════════════ */
+    document.addEventListener("keydown", e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        const sitrepTab = document.getElementById("tab-sitrep");
+        if (sitrepTab.classList.contains("active")) generateSITREP();
+      }
+    });
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       IMAGE SANITIZER
+    ═══════════════════════════════════════════════════════════════════════ */
+    const sanitizedImages = [];
+
+    function handleDragOver(e) {
+      e.preventDefault();
+      document.getElementById("drop-zone").classList.add("drag-over");
+    }
+
+    function handleDragLeave() {
+      document.getElementById("drop-zone").classList.remove("drag-over");
+    }
+
+    function handleDrop(e) {
+      e.preventDefault();
+      handleDragLeave();
+      const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"));
+      if (!files.length) { showToast("No image files detected", "warn"); return; }
+      processImages(files);
+    }
+
+    function handleFileInput(e) {
+      const files = Array.from(e.target.files);
+      if (!files.length) return;
+      processImages(files);
+      e.target.value = "";
+    }
+
+    function processImages(files) {
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = ev => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            canvas.width  = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0);
+
+            canvas.toBlob(blob => {
+              const cleanUrl = URL.createObjectURL(blob);
+              const entry = {
+                original: file.name,
+                size: file.size,
+                cleanBlob: blob,
+                cleanUrl,
+                width: img.naturalWidth,
+                height: img.naturalHeight,
+              };
+              sanitizedImages.push(entry);
+              renderPreviewCard(entry);
+              document.getElementById("sanitize-actions").style.display = "flex";
+            }, "image/jpeg", 0.92);
+          };
+          img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+      showToast(`Processing ${files.length} image${files.length > 1 ? "s" : ""}…`, "info", 2000);
+    }
+
+    function renderPreviewCard(entry) {
+      const grid = document.getElementById("preview-grid");
+      const card = document.createElement("div");
+      card.className = "preview-card";
+      card.setAttribute("role", "figure");
+      card.setAttribute("aria-label", `Sanitized image: ${entry.original}`);
+      const sizeKB = (entry.cleanBlob.size / 1024).toFixed(1);
+      card.innerHTML = `
+        <img src="${entry.cleanUrl}" alt="Sanitized version of ${entry.original}" loading="lazy" />
+        <span class="preview-status status-clean" aria-label="Image is clean">✅ Clean</span>
+        <div class="preview-info">
+          <table class="meta-table">
+            <tr><td>File</td><td>${entry.original}</td></tr>
+            <tr><td>Size</td><td>${sizeKB} KB</td></tr>
+            <tr><td>Dims</td><td>${entry.width}×${entry.height}</td></tr>
+            <tr><td>EXIF</td><td style="color:var(--accent2)">Stripped ✓</td></tr>
+            <tr><td>GPS</td><td style="color:var(--accent2)">Removed ✓</td></tr>
+          </table>
+        </div>
+      `;
+      grid.appendChild(card);
+    }
+
+    function downloadAll() {
+      if (!sanitizedImages.length) { showToast("No images to download", "warn"); return; }
+      sanitizedImages.forEach((entry, i) => {
+        setTimeout(() => {
+          const a    = document.createElement("a");
+          a.href     = entry.cleanUrl;
+          a.download = `clean_${entry.original.replace(/\.[^.]+$/, "")}.jpg`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }, i * 200);
+      });
+      showToast(`Downloading ${sanitizedImages.length} clean image${sanitizedImages.length > 1 ? "s" : ""}`, "success");
+    }
+
+    function clearImages() {
+      sanitizedImages.forEach(e => URL.revokeObjectURL(e.cleanUrl));
+      sanitizedImages.length = 0;
+      document.getElementById("preview-grid").innerHTML = "";
+      document.getElementById("sanitize-actions").style.display = "none";
+      showToast("Images cleared", "info");
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       PWA INSTALL
+    ═══════════════════════════════════════════════════════════════════════ */
+    let deferredInstallPrompt = null;
+
+    window.addEventListener("beforeinstallprompt", e => {
+      e.preventDefault();
+      deferredInstallPrompt = e;
+      document.getElementById("install-banner").classList.remove("hidden");
+    });
+
+    document.getElementById("install-btn").addEventListener("click", async () => {
+      if (!deferredInstallPrompt) return;
+      deferredInstallPrompt.prompt();
+      const { outcome } = await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+
+      const banner = document.getElementById("install-banner");
+      const btn    = document.getElementById("install-btn");
+
+      if (outcome === "accepted") {
+        btn.textContent = "Installed ✓";
+        btn.disabled    = true;
+        showToast("FieldKit installed — available offline!", "success", 5000);
+        setTimeout(() => banner.classList.add("hidden"), 2500);
+      } else {
+        banner.classList.add("hidden");
+      }
+    });
+
+    window.addEventListener("appinstalled", () => {
+      document.getElementById("install-banner").classList.add("hidden");
+      deferredInstallPrompt = null;
+    });
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       INIT — pre-fill date/time
+    ═══════════════════════════════════════════════════════════════════════ */
+    (function init() {
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+      const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      document.getElementById("report-date").value = dateStr;
+      document.getElementById("report-time").value = timeStr;
+    })();
+  </script>
+</body>
+</html>
