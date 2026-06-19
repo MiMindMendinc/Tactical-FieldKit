@@ -1,7 +1,7 @@
 {
   "name": "Tactical FieldKit",
   "short_name": "FieldKit",
-  "description": "100% offline SITREP generator + image sanitizer. Privacy-first, zero metadata.",
+  "description": "Local-first SITREP drafting and browser image re-encoding prototype.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#111111",
