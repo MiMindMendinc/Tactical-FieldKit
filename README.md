@@ -1,16 +1,16 @@
 # Tactical-FieldKit
 
-100% offline SITREP generator and image sanitizer for field operations with GPS and metadata removal.
+Browser-based SITREP drafting and image re-encoding prototype with GPS and manual redaction tools.
 
 ## Technical Summary
 - **Architecture**: Single-file PWA, no server dependency
 - **Features**: METHANE SITREP format, GPS auto-fill, UTC timestamps
-- **Security**: Canvas-based EXIF stripping, manual redaction tools
+- **Privacy feature**: Canvas-based image re-encoding, plus manual redaction tools
 - **Performance**: Works offline after initial load, installable on mobile
 - **Integration**: Clipboard/Web Share APIs, geolocation
 
 ## Impact
-Provides OPSEC-ready tools for journalists, LE, and NGOs operating in hostile environments. Ensures information integrity without network exposure.
+Demonstrates a local-first field-workflow UI. It is not an audited OPSEC product, and exported files should be independently inspected before sensitive use.
 
 ## Quick Start
 Visit [live site](https://mimindmendinc.github.io/Tactical-FieldKit/) or:
@@ -23,7 +23,7 @@ cd Tactical-FieldKit
 ## Features
 - Offline SITREP generation
 - GPS coordinate integration
-- Image metadata removal
+- Canvas-based image re-encoding intended to omit source EXIF metadata
 - PWA deployment
 
 ## License
