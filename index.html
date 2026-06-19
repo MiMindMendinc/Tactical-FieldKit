@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="100% offline SITREP generator + image sanitizer. Privacy-first, zero network, zero metadata." />
+  <meta name="description" content="Local-first SITREP drafting and browser image re-encoding prototype." />
   <meta name="theme-color" content="#1a1a1a" />
   <link rel="manifest" href="manifest.json" />
   <title>Tactical FieldKit</title>
@@ -286,7 +286,7 @@
     <button class="btn-blue"  id="export-png"  disabled>Export PNG</button>
   </div>
 
-  <p id="img-hint">Upload → toggle Redact ON → draw black boxes → Export. All metadata removed on-device.</p>
+  <p id="img-hint">Upload → toggle Redact ON → draw black boxes → Export a newly encoded image. Verify sensitive exports independently.</p>
 
   <div id="canvas-wrap">
     <canvas id="canvas"></canvas>
@@ -450,14 +450,14 @@ function loadImage(file) {
       canvas.width  = img.naturalWidth;
       canvas.height = img.naturalHeight;
       ctx.drawImage(img, 0, 0);
-      // Capture stripped pixel data (no EXIF survives canvas round-trip)
+      // Capture pixel data for a newly encoded export. Verify sensitive files independently.
       baseImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
       boxes = [];
       canvasWrap.style.display = 'block';
       clearBtn.disabled  = false;
       exportJpeg.disabled = false;
       exportPng.disabled  = false;
-      get('img-hint').textContent = 'EXIF stripped ✅ — Toggle Redact ON to draw black boxes.';
+      get('img-hint').textContent = 'Image re-encoded — Toggle Redact ON to draw black boxes. Verify the exported file before sensitive use.';
     };
     img.src = ev.target.result;
   };
